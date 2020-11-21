@@ -1,0 +1,53 @@
+x-axis length 1.0 m, from start position 0.0 m to end position 1.0 m. 
+0.65 km for z-axis depth from the 0.0 ground . 
+-*-Grid dimensions-*-
+    Grid Size : 65 x 100 and 2060 time steps
+This numerical simulation only records 2.0 seconds of wave propagation. 
+The damping term only works outside of square [0.1, 0.0] x [0.1, 0.55] x [0.9, 0.55] x [0.9, 0.0]. 
+Damping layer width 0.1 
+Discretizations steps hx = 0.01, hz = 0.01 and ht = 0.000970873786407767. 
+Parameters set:
+ init_gu = 1
+ shots amount = 5
+ receivers amount = 80
+gamma = 0.8
+ gamma2 = 0.8
+ ls_max = 3
+stop_coeff = 1e-08
+ add_noise = True
+ add_weight = True
+ beta0_init = 1.5
+ stop_decision_limit = 150
+ alpha1 = 0.01
+ alpha2 = 0.97
+ peak frequencies of Ricker wavelet = 5.0
+Courant number for state/adjoint: 0.4
+Signal sources located at 
+ [0.11 0.3  0.5  0.69 0.89]
+Signal source matrix indexes 
+ [11 30 50 69 89]
+
+-------------------------
+Noise coefficient:0.001
+Noise level: 3.05 % 
+ Signal-to-Noise ratio (SNR): 15.15 dB
+
+-------------------------
+Noise coefficient:0.001
+Noise level: 2.87 % 
+ Signal-to-Noise ratio (SNR): 15.42 dB
+
+-------------------------
+Noise coefficient:0.001
+Noise level: 2.83 % 
+ Signal-to-Noise ratio (SNR): 15.48 dB
+
+-------------------------
+Noise coefficient:0.001
+Noise level: 2.84 % 
+ Signal-to-Noise ratio (SNR): 15.46 dB
+
+-------------------------
+Noise coefficient:0.001
+Noise level: 3.10 % 
+ Signal-to-Noise ratio (SNR): 15.09 dB
