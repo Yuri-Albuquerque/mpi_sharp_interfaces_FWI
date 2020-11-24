@@ -78,10 +78,9 @@ def outputs_and_paths(par):
 # ------------------------------------------------------------------------
 
 
-def stateSolution(parameters, eta_u, u, FT_state, vel):
+def stateSolution(parameters, eta_u, u, FT, vel):
     """ 
     Compute the state solution implemented in c_functions/src/main.cpp
-    with Devito this function will no longer be useful
     """
     par = np.zeros((10))
     par[0] = parameters["xMin"]
@@ -93,14 +92,13 @@ def stateSolution(parameters, eta_u, u, FT_state, vel):
     par[6] = parameters["hx"]
     par[7] = parameters["hz"]
     par[8] = parameters["ht"]
-    return solve_wv2(par.astype("float64"), u.astype("float64"), vel.astype("float64"), eta_u.astype("float64"), FT_state.astype("float64"))
+    return solve_wv2(par.astype("float64"), u.astype("float64"), vel.astype("float64"), eta_u.astype("float64"), FT.astype("float64"))
 # ------------------------------------------------------------------------
 
 
-def adjointSolution(parameters, eta_p, p, diff_ud, velocity):
+def adjointSolution(parameters, eta_p, p, misfit, velocity):
     """
     Compute the adjoint solution implemented in c_functions/src/main.cpp
-    with Devito this function will no longer be useful
     """
     nz = parameters["nz"]
     nx = parameters["nx"]
@@ -110,7 +108,7 @@ def adjointSolution(parameters, eta_p, p, diff_ud, velocity):
     p_tilde = np.empty((nz, nx, nt), np.dtype('float'))
     FT = np.zeros((nz, nx, nt), np.dtype('float'))
     FT_tilde = np.zeros((nz, nx, nt), np.dtype('float'))
-    FT[0, rec_index, 0:nt] = 4.0*diff_ud[:,:]
+    FT[0, rec_index, 0:nt] = 4.0*misfit[:,:]
     # FT_tilde = reverse_time(FT_tilde.astype("float64"), FT.astype("float64"))
     FT_tilde[0:nz, 0:nx, 0:nt] = FT[0:nz, 0:nx, ::-1]
     FT_tilde = -1.0 * FT_tilde
@@ -235,7 +233,6 @@ def calc_state_adjoint_derivatives(u, P, uz, pz, ux, px, ut, pt, hz, hx, ht):
     """
     Compute grad(u) and grad(P) that compose shape derivative equation
     """
-    nz, nx, nt = u.shape
     ut = dt_u(u.astype("float64"), ut.astype("float64"), ht)
     pt = dt_p(P.astype("float64"), pt.astype("float64"), ht)
     ux = dx_cpp(u.astype("float64"), ux.astype("float64"), hx)
@@ -243,69 +240,13 @@ def calc_state_adjoint_derivatives(u, P, uz, pz, ux, px, ut, pt, hz, hx, ht):
     uz = dz_cpp(u.astype("float64"), uz.astype("float64"), hz)
     pz = dz_cpp(P.astype("float64"), pz.astype("float64"), hz)
     
-    # ut[0:nz, 0:nx, 1:nt] = (
-    #     1.0/ht)*(u[0:nz, 0:nx, 1:nt] - u[0:nz, 0:nx, 0:nt-1])
-    
-    # pt[0:nz, 0:nx, 1:nt] = (
-    #     1.0/ht)*(P[0:nz, 0:nx, 1:nt] - P[0:nz, 0:nx, 0:nt-1])
-    #
-    # ut[0:nz, 0:nx, 0] = 0.0
-    # pt[0:nz, 0:nx, 0] = pt[0:nz, 0:nx, 1]
-    # -----------------------------
-    # differences of u_x and p_x
-    # -----------------------------
-    # ux[0:nz, 1:nx - 1, 0:nt] = 0.5 * (1.0/hx) * \
-    #     (u[0:nz, 2:nx, 0:nt] - u[0:nz, 0:nx - 2, 0:nt])
-
-    # ux[0:nz, 0, 0:nt] = ux[0:nz, 1, 0:nt]
-    # ux[0:nz, nx - 1, 0:nt] = ux[0:nz, nx - 2, 0:nt]
-
-
-    # px[0:nz, 1:nx - 1, 0:nt] = 0.5 * (1.0/hx) * \
-    #     (P[0:nz, 2:nx, 0:nt] - P[0:nz, 0:nx - 2, 0:nt])
-    # px[0:nz, 0, 0:nt] = px[0:nz, 1, 0:nt]
-    # px[0:nz, nx - 1, 0:nt] = px[0:nz, nx - 2, 0:nt]
-    # set_trace()
-    # -----------------------------
-    # differences of u_z and p_z
-    # -----------------------------
-    # uz[1:nz - 1, 0:nx, 0:nt] = 0.5 * (1.0/hz) * \
-    #     (u[2:nz, 0:nx, 0:nt] - u[0:nz - 2, 0:nx, 0:nt])
-    
-    # uz[0, 0:nx, 0:nt] = uz[1, 0:nx, 0:nt]
-    # uz[nz - 1, 0:nx, 0:nt] = uz[nz - 2, 0:nx, 0:nt]
-
-    
-    # pz[1:nz - 1, 0:nx, 0:nt] = 0.5 * (1.0/hz) * \
-    #     (P[2:nz, 0:nx, 0:nt] - P[0:nz - 2, 0:nx, 0:nt])
-   
-    # pz[0, 0:nx, 0:nt] = pz[1, 0:nx, 0:nt]
-    # pz[nz - 1, 0:nx, 0:nt] = pz[nz - 2, 0:nx, 0:nt]
 
     return uz, pz, ux, px, ut, pt
 # ------------------------------------------------------------------------
 
 
-# def calc_eta_derivatives(eta, etax, etaz, hz, hx, ht):
-#     """
-#     Compute grad(eta) term that compose shape derivative equation
-#     """
-#     nz, nx = eta.shape
-#     etax[0:nz, 1:nx - 1] = 0.5 * (1.0/hx) * (eta[0:nz, 2:nx] - eta[0:nz, 0:nx - 2])
-#     etax[0:nz, 0] = etax[0:nz, 1]
-#     etax[0:nz, nx - 1] = etax[0:nz, nx - 2]
-#     # -----------------------------
-#     # forward differences for eta z-direction
-#     # -----------------------------
-#     etaz[1:nz - 1, 0:nx] = 0.5 * (1.0/hz) * (eta[2:nz, 0:nx] - eta[0:nz - 2, 0:nx])
-#     etaz[0, 0:nx] = etaz[1, 0:nx]
-#     etaz[nz - 1, 0:nx] = etaz[nz - 2, 0:nx]
 
-#     return etaz, etax
-# ------------------------------------------------------------------------
-
-
-def calc_derivative_sh(u, P, eta, hz, hx, ht, V):
+def calc_derivative_sh(u, P, hz, hx, ht, V):
     """
     Compute time integration for shape derivative terms
     """
@@ -317,8 +258,6 @@ def calc_derivative_sh(u, P, eta, hz, hx, ht, V):
     px = np.zeros((nz, nx, nt))
     ut = np.zeros((nz, nx, nt))
     pt = np.zeros((nz, nx, nt))
-    # etax = np.zeros((nz, nx))
-    # etaz = np.zeros((nz, nx))
     #
     simpson_coeffs = np.zeros((nt))
     simpson_coeffs[1: nt-1: 2] = 4.0
@@ -345,166 +284,116 @@ def calc_derivative_sh(u, P, eta, hz, hx, ht, V):
     k3_zz = int_0T(k3_zz.astype("float64"), uz.astype("float64"), pz.astype("float64"), simpson_coeffs.astype("float64"))
 
     k2 = k3_xx + k3_zz
-    #etaz, etax = calc_eta_derivatives(eta, etax, etaz, hz, hx, ht)
 
+    my_first, my_last = V.dofmap().ownership_range()
+    unowned = V.dofmap().local_to_global_unowned()
+    dofs = list(filter(lambda dof: V.dofmap().local_to_global_index(dof) not in unowned, [i for i in range(my_last-my_first)]))
 
-    # utpt = ut[0:nz, 0:nx, 0:nt] * pt[0:nz, 0:nx, 0:nt]
-    #k0 = np.sum(utpt*simpson_coeffs[0:nt], axis=2)
-    # k0 = np.dot(utpt,simpson_coeffs)
-
-
-    
-    # alternative way of calculating k3
-    # uxpx = ux[0:nz, 0:nx, 0:nt] * px[0:nz, 0:nx, 0:nt]
-    #k3_xx = np.sum(uxpx[0:nz, 0:nx, 0:nt]*simpson_coeffs[0:nt], axis=2)
-    # k3_xx = np.dot(uxpx,simpson_coeffs)
-
-
-    # uxpz = ux[0:nz, 0:nx, 0:nt] * pz[0:nz, 0:nx, 0:nt]
-    # uzpx = uz[0:nz, 0:nx, 0:nt] * px[0:nz, 0:nx, 0:nt]
-    #k3_xz = np.sum(
-    #    (uxpz[0:nz, 0:nx, 0:nt] + uzpx[0:nz, 0:nx, 0:nt])*simpson_coeffs[0:nt], axis=2)
-    # k3_xz = np.dot(uxpz + uzpx,simpson_coeffs)
-
-
-    # uzpz = uz[0:nz, 0:nx, 0:nt] * pz[0:nz, 0:nx, 0:nt]
-    #k3_zz = np.sum(uzpz[0:nz, 0:nx, 0:nt]*simpson_coeffs[0:nt], axis=2)
-    # k3_zz = np.dot(uzpz,simpson_coeffs)
-
-    
-    # calculating k2
-    # k2 = k3_xx[0:nz, 0:nx] + k3_zz[0:nz, 0:nx]
-    # calculating k4
-    #k4 = (np.sum((ut[0:nz, 0:nx, 0:nt] * P[0:nz, 0:nx, 0:nt]) *
-    #                simpson_coeffs[0:nt], axis=2))*eta[0:nz, 0:nx]
-
-    #k4_0 = (np.sum((ut[0:nz, 0:nx, 0:nt] * P[0:nz, 0:nx, 0:nt]) *
-    #                simpson_coeffs[0:nt], axis=2))
-    #k4_0 = np.dot(ut*P,simpson_coeffs)
-
-
-    #k4 = k4_0*eta[0:nz, 0:nx] 
-    # calculating k5
-    #k5_x = (np.sum((ut[0:nz, 0:nx, 0:nt] * P[0:nz, 0:nx, 0:nt]) *
-    #                  simpson_coeffs[0:nt], axis=2))*etax[0:nz, 0:nx]
-    #k5_z = (np.sum((ut[0:nz, 0:nx, 0:nt] * P[0:nz, 0:nx, 0:nt]) *
-    #                  simpson_coeffs[0:nt], axis=2))*etaz[0:nz, 0:nx]
-    #
-    #k5_x = k4_0*etax[0:nz, 0:nx]
-    #k5_z = k4_0*etaz[0:nz, 0:nx]
-
-    return k0[fc.dof_to_vertex_map(V)], k2[fc.dof_to_vertex_map(V)], k3_zz[fc.dof_to_vertex_map(V)], k3_xz[fc.dof_to_vertex_map(V)], k3_xx[fc.dof_to_vertex_map(V)]
+    return k0[dofs], k2[dofs], k3_zz[dofs], k3_xz[dofs], k3_xx[dofs]
 # -----------------------------------------------------------------------
 
+class ShapeDerivative():
+    def __init__(self, parameters, csi, V, dtotal, seism_vel):
+        self.par = parameters
+        self.V = V 
+        self.csi = csi
+        self.dtotal = dtotal
+        self.seismic_vel = seism_vel 
 
-def derive_sh(parameters, u, P, eta, V, csi, dx, seismic_vel, dtotal):
-    """
-    Assemble shape derivative equation
-    """
-    hx, hz, ht = parameters["hx"], parameters["hz"], parameters["ht"]
+    def compute(self, u, P, dx):
+        """
+        Assemble shape derivative equation
+        """
+        hx, hz, ht = self.par["hx"], self.par["hz"], self.par["ht"]
 
-    #
-    nz, nx, nt = u.shape
-    u_fe = fc.Function(V)
-    p_fe = fc.Function(V)
-    k0_fe = fc.Function(V)
-    k2_fe = fc.Function(V)
-    k3_xx_fe = fc.Function(V)
-    k3_xz_fe = fc.Function(V)
-    k3_zz_fe = fc.Function(V)
-    #k4_fe = fc.Function(V)
-    #k5_x_fe = fc.Function(V)
-    #k5_z_fe = fc.Function(V)
-    #
-    # k0_fe.vector()[:] = k0.reshape((nx*nz))[fc.dof_to_vertex_map(V)]
-    # k3_xx_fe.vector()[:] = k3_xx.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    # k3_xz_fe.vector()[:] = k3_xz.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    # k3_zz_fe.vector()[:] = k3_zz.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    # k2_fe.vector()[:] = k2.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
+        #
+        k0_fe = fc.Function(self.V)
+        k2_fe = fc.Function(self.V)
+        k3_xx_fe = fc.Function(self.V)
+        k3_xz_fe = fc.Function(self.V)
+        k3_zz_fe = fc.Function(self.V)
 
-    k0_fe.vector()[:], k2_fe.vector()[:], k3_zz_fe.vector()[:], k3_xz_fe.vector()[:], k3_xx_fe.vector()[:] = calc_derivative_sh(
-        u, P, eta, hz, hx, ht, V)
-      
-    #k4_fe.vector()[:] = k4.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    #k5_x_fe.vector()[:] = k5_x.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    #k5_z_fe.vector()[:] = k5_z.reshape((nx * nz))[fc.dof_to_vertex_map(V)]
-    #
-    sigma0 = 1.0/(seismic_vel[1]*seismic_vel[1])
-    sigma1 = 1.0/(seismic_vel[0]*seismic_vel[0])
-    #
-    rhs = -1.0*(sigma0 * k0_fe * div(csi) * dx(0) +
-                sigma1 * k0_fe * div(csi) * dx(1))
-    rhs += 1.0 * (k2_fe * div(csi) * dtotal)
-    #rhs += 1.0 * ((k2_fe + k4_fe) * div(csi) * dtotal)
-    rhs += -1.0*((2.0*k3_zz_fe*grad(csi)[1, 1] + k3_xz_fe * (
-        grad(csi)[0, 1] + grad(csi)[1, 0]) + 2.0*k3_xx_fe*grad(csi)[0, 0]) * dtotal)
-    #rhs += 1.0 * (k4_fe * div(csi)*dtotal)
+        k0_fe.vector()[:], k2_fe.vector()[:], k3_zz_fe.vector()[:], k3_xz_fe.vector()[:], k3_xx_fe.vector()[:] = calc_derivative_sh(
+            u, P, hz, hx, ht, self.V)
+        
+        #
+        sigma0 = 1.0/(self.seismic_vel[1]*self.seismic_vel[1])
+        sigma1 = 1.0/(self.seismic_vel[0]*self.seismic_vel[0])
+        #
+        rhs = -1.0*(sigma0 * k0_fe * div(self.csi) * dx(0) +
+                    sigma1 * k0_fe * div(self.csi) * dx(1))
+        rhs += 1.0 * (k2_fe * div(self.csi) * self.dtotal)
 
-    #rhs += 1.0 * ((k5_x_fe * csi[0] + k5_z_fe*csi[1]) * dtotal)
-    #
-    return rhs
+        rhs += -1.0*((2.0*k3_zz_fe*grad(self.csi)[1, 1] + k3_xz_fe * (
+            grad(self.csi)[0, 1] + grad(self.csi)[1, 0]) + 2.0*k3_xx_fe*grad(self.csi)[0, 0]) * self.dtotal)
+
+        return rhs
 
 
 # ------------------------------------------------------------------------
 #
+class Source():
+    def __init__(self, parameters) -> None:
+            self.par = parameters
+            self.peak_frequency= parameters['source_peak_frequency']
 
+    def wavelet(self, tme):
+        """ 
+        The amplitude A of the Ricker wavelet
+        """
+        pk_f = self.peak_frequency  # (hertz) peak frequency
+        def a(t): return np.pi*(pk_f*2.0*t - 0.95)
+        def s(t): return 4.0*1.0e3*(1.0 - 2.0*(a(t)*a(t)))*np.exp(-(a(t)*a(t)))
+        return s(tme)
 
-def source(tme, peak_frequency):
-    """ 
-    The amplitude A of the Ricker wavelet
-    """
-    pk_f = peak_frequency  # (hertz) peak frequency
-    def a(t): return np.pi*(pk_f*2.0*t - 0.95)
-    def s(t): return 4.0*1.0e3*(1.0 - 2.0*(a(t)*a(t)))*np.exp(-(a(t)*a(t)))
-    return s(tme)
-# ------------------------------------------------------------------------
+    def inject(self):
+        """
+        Compute source matrix to build the seismograms of synthetic model
+        with Devito this function will no longer be useful
+        """
+        hx = self.par["hx"]
+        nx = self.par["nx"]
+        nz = self.par["nz"]
+        xMin = self.par["xMin"]
+        nt = self.par["nt"]
+        grid_coords_t = self.par["gc_t"]
+        grid_x_m = self.par["gc_x"]
+        src_Zpos = self.par["src_Zpos"]
+        dmp_xMin = self.par["dmp_xMin"]
+        dmp_xMax = self.par["dmp_xMax"]
+        strikes = self.par["n_shots"]
+        path = self.par["path"]
+        
+        FT = np.zeros((strikes, nz, nx, nt), np.dtype('float'))
+        IS = np.int(np.floor(src_Zpos))
+        JS_pos = np.zeros((strikes), np.dtype('int'))
+        text_file = open(path+"wave_out.txt", "a")
 
-
-def source_config(parameters):
-    """
-    Compute source matrix to build the seismograms of synthetic model
-    with Devito this function will no longer be useful
-    """
-    hx = parameters["hx"]
-    nx = parameters["nx"]
-    nz = parameters["nz"]
-    xMin = parameters["xMin"]
-    nt = parameters["nt"]
-    grid_coords_t = parameters["gc_t"]
-    grid_x_m = parameters["gc_x"]
-    src_Zpos = parameters["src_Zpos"]
-    dmp_xMin = parameters["dmp_xMin"]
-    dmp_xMax = parameters["dmp_xMax"]
-    strikes = parameters["n_shots"]
-    peak_frequency = parameters["source_peak_frequency"]
-    FT = np.zeros((strikes, nz, nx, nt), np.dtype('float'))
-    IS = np.int(np.floor(src_Zpos))
-    JS_pos = np.zeros((strikes), np.dtype('int'))
-    path = parameters["path"]
-    text_file = open(path+"wave_out.txt", "a")
-    if strikes == 1:
-        text_file.write('\n')
-        src_Xpos = 0.5*(dmp_xMin + dmp_xMax)
-        text_file.write(
-            'One source located at: (0.0, {}) \n' .format(src_Xpos))
-        JS_pos[0] = int(round(abs(
-            src_Xpos - xMin)/hx))
-        FT[0, IS, JS_pos[0], 0:nt] = source(grid_coords_t, peak_frequency)
-    else:
-        # computing source position in x-axis
-        JS_pos = np.linspace(
-            parameters["id_dmp_xMin"]+1, parameters["id_dmp_xMax"]-1, strikes, dtype='int')
-        source_distr = grid_x_m[JS_pos]
-        ricker = np.copy(source(grid_coords_t, peak_frequency))
-        for i, js in enumerate(JS_pos):
-            FT[i, IS, js, 0:nt] = ricker
-    text_file.write('Signal sources located at \n {}\n' .format(source_distr))
-    text_file.write('Signal source matrix indexes \n {}\n' .format(JS_pos))
-    text_file.close()
-    plt.figure()
-    plt.plot(grid_coords_t,FT[1,IS,JS_pos[1],:])
-    plt.savefig(str(path + 'source.png'), dpi=500)
-    return FT
+        if strikes == 1:
+            text_file.write('\n')
+            src_Xpos = 0.5*(dmp_xMin + dmp_xMax)
+            text_file.write(
+                'One source located at: (0.0, {}) \n' .format(src_Xpos))
+            JS_pos[0] = int(round(abs(
+                src_Xpos - xMin)/hx))
+            FT[0, IS, JS_pos[0], 0:nt] = self.wavelet(grid_coords_t)
+        else:
+            # computing source position in x-axis
+            JS_pos = np.linspace(self.par["id_dmp_xMin"]+1, 
+                                 self.par["id_dmp_xMax"]-1, 
+                                 strikes, dtype='int')
+            source_distr = grid_x_m[JS_pos]
+            ricker = np.copy(self.wavelet(grid_coords_t))
+            for i, js in enumerate(JS_pos):
+                FT[i, IS, js, 0:nt] = ricker
+    
+        text_file.write('Signal sources located at \n {}\n' .format(source_distr))
+        text_file.write('Signal source matrix indexes \n {}\n' .format(JS_pos))
+        text_file.close()
+        plt.figure()
+        plt.plot(grid_coords_t, FT[1,IS,JS_pos[1],:])
+        plt.savefig(str(path + 'source.png'), dpi=500)
+        return FT
 # ------------------------------------------------------------------------
 
 
@@ -611,7 +500,7 @@ def initial_guess(parameters):
 #------------------------------------------------------------------------
 
 
-def plotMeasurements(parameters, d_noise):
+def plotMeasurements(parameters, seismograms, s):
     """
     Plot seismograms
     """
@@ -622,68 +511,56 @@ def plotMeasurements(parameters, d_noise):
     times = parameters["gc_t"]
     receivers = parameters["rec_index"]
     rec_position = parameters["rec"]
-    figSequence4 = 0
     print('Plotting Measure field\n')
-    for s in range(shots):
-        figSequence4 += 1
-        fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
-        plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
-        ax.tick_params(axis='both', labelsize=20, width=2)
-        for id_r, r in enumerate(receivers):
-            signal = np.transpose(np.array(rec_position[id_r]+d_noise[s, 0, r, 0:nt], np.dtype('float')))
-            ax.plot(signal, times, color='k', linewidth=0.75)
-            ax.fill_betweenx(
-                times, rec_position[id_r], signal, facecolor='blue', alpha=0.5)
-        plt.gca().invert_yaxis()
-        plt.ylim(times[len(times)-1], times[0])
-        plt.xlabel('Receiver position')
-        plt.ylabel('time')
-        #
-        plt.title('Seismogram')
-        nomeDaFigura1 = '%03d_Noise_M_Field' % (figSequence4)
-        fig.savefig(str(path + 'MeasureField/' + nomeDaFigura1), dpi=500)
-        plt.close()
+
+    fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
+    plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
+    ax.tick_params(axis='both', labelsize=20, width=2)
+    for id_r, r in enumerate(receivers):
+        signal = np.transpose(np.array(rec_position[id_r]+seismograms[id_r, 0:nt], np.dtype('float')))
+        ax.plot(signal, times, color='k', linewidth=0.75)
+        ax.fill_betweenx(
+            times, rec_position[id_r], signal, facecolor='blue', alpha=0.5)
+    plt.gca().invert_yaxis()
+    plt.ylim(times[len(times)-1], times[0])
+    plt.xlabel('Receiver position')
+    plt.ylabel('time')
+    #
+    plt.title('Seismogram')
+    nomeDaFigura1 = '%03d_Noise_M_Field' % (s)
+    fig.savefig(str(path + 'MeasureField/' + nomeDaFigura1), dpi=500)
+    plt.close()
 # ------------------------------------------------------------------------
 
 
-def plotstate(parameters, u, folder):
+def plotstate(parameters, u, folder, s):
     """
     Plot state shots
     """
-    xMin = parameters["xMin"]
-    xMax = parameters["xMax"]
-    tMin = parameters["tMin"]
-    tMax = parameters["tMax"]
     path = parameters["path"]
-    shots = parameters["n_shots"]
-    nz = parameters["nz"]
-    nx = parameters["nx"]
     nt = parameters["nt"]
     times = parameters["gc_t"]
     receivers = parameters["rec_index"]
     rec_position = parameters["rec"]
     # plot state solution
-    figSequence2 = 0
     print('Plotting wave field for the initial velocity guess...\n')
-    for s in range(shots):
-        plt.close()
-        figSequence2 += 1
-        fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
-        plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
-        ax.tick_params(axis='both', labelsize=20, width=2)
-        for id_r, r in enumerate(receivers):
-            signal = np.transpose(
-                np.array(rec_position[id_r]+u[s, 0, r, 0:nt], np.dtype('float')))
-            ax.plot(signal, times, color='k', linewidth=0.75)
-            ax.fill_betweenx(
-                times, rec_position[id_r], signal, facecolor='green', alpha=0.5)
-        plt.gca().invert_yaxis()
-        plt.ylim(times[len(times)-1], times[0])
-        plt.xlabel('Receiver position')
-        plt.ylabel('time')
-        nomeDaFigura2 = '%03d_shot_state_field' % (figSequence2)
-        fig.savefig(str(path + folder + nomeDaFigura2), dpi=fig.dpi)
-        plt.close()
+    plt.close()
+    fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
+    plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
+    ax.tick_params(axis='both', labelsize=20, width=2)
+    for id_r, r in enumerate(receivers):
+        signal = np.transpose(
+            np.array(rec_position[id_r]+u[0, r, 0:nt], np.dtype('float')))
+        ax.plot(signal, times, color='k', linewidth=0.75)
+        ax.fill_betweenx(
+            times, rec_position[id_r], signal, facecolor='green', alpha=0.5)
+    plt.gca().invert_yaxis()
+    plt.ylim(times[len(times)-1], times[0])
+    plt.xlabel('Receiver position')
+    plt.ylabel('time')
+    nomeDaFigura2 = '%03d_shot_state_field' % (s)
+    fig.savefig(str(path + folder + nomeDaFigura2), dpi=fig.dpi)
+    plt.close()
 # ------------------------------------------------------------------------
 def plot_displacement_field(parameters, mat):
     xMin = parameters["xMin"]
@@ -759,33 +636,30 @@ def plotadjoint(parameters, p):
                         dpi=fig.dpi, bbox_inches='tight')
             plt.close()
 # ------------------------------------------------------------------------
-def plot_misfit(parameters, file_name, graph_title, mat):
+def plot_misfit(parameters, file_name, graph_title, mat, count):
     path = parameters["path_misfit"]
     times = parameters["gc_t"]
     rec_position = parameters["rec"]
-    shots, n_receivers, nt = mat.shape 
-    count = 0
+    _, nt = mat.shape 
     #
-    for s in range(shots):
-        plt.close()
-        count += 1
-        fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
-        plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
-        ax.tick_params(axis='both', labelsize=20, width=2)
-        for id_r, r in enumerate(rec_position):
-            signal = np.transpose(np.array(r+mat[s,id_r, 0:nt], np.dtype('float')))
-            ax.plot(signal, times, color='k', linewidth=0.75)
-            ax.fill_betweenx(
-                times, rec_position[id_r], signal, facecolor='black', alpha=0.5)
-        plt.gca().invert_yaxis()
-        plt.ylim(times[len(times)-1], times[0])
-        plt.title(graph_title)
-        plt.xlabel('position')
-        plt.ylabel('time')
-        name = '%03d_' % (count)
-        name += file_name
-        fig.savefig(str(path + name + '.png'), dpi=fig.dpi)
-        plt.close()
+    plt.close()
+    fig, ax = plt.subplots(1, 1, figsize=(14.0, 18.0))
+    plt.rcParams.update({'font.size': 12, 'font.family': 'serif'})
+    ax.tick_params(axis='both', labelsize=20, width=2)
+    for id_r, r in enumerate(rec_position):
+        signal = np.transpose(np.array(r+mat[id_r, 0:nt], np.dtype('float')))
+        ax.plot(signal, times, color='k', linewidth=0.75)
+        ax.fill_betweenx(
+            times, rec_position[id_r], signal, facecolor='black', alpha=0.5)
+    plt.gca().invert_yaxis()
+    plt.ylim(times[len(times)-1], times[0])
+    plt.title(graph_title)
+    plt.xlabel('position')
+    plt.ylabel('time')
+    name = '%03d_' % (count)
+    name += file_name
+    fig.savefig(str(path + name + '.png'), dpi=fig.dpi)
+    plt.close()
 
 def plot_mat(parameters, file_name, graph_title, mat):
     """

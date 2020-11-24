@@ -127,27 +127,23 @@ py::array_t<double> solve_wv2(py::array_t<double> parameters, py::array_t<double
   backward coefficients: array([-0.7, 5.66111111, -20.1, 41., -52.72222222, 43.95, -22.3,  5.21111111]), 'offsets': array([-7, -6, -5, -4, -3, -2, -1,  0])}}
   
   for the term Gamma_n
-  High resolution scheme of 7 points for first derivative
+  7-points scheme for the 1º derivative
   center coefficients: array([-1.66666667e-02, 1.50000000e-01, -7.50000000e-01, 0.0, 7.50000000e-01, -1.50000000e-01, 1.66666667e-02]), 'offsets': array([-3, -2, -1, 0, 1, 2, 3])}, 
   forward coefficients: array([-2.45, 6., -7.5, 6.66666667, -3.75, 1.2, -0.16666667]), 'offsets': array([0, 1, 2, 3, 4, 5, 6])}, 
   backward coefficients: array([0.16666667, -1.2, 3.75, -6.66666667, 7.5, -6., 2.45]), 'offsets': array([-6, -5, -4, -3, -2, -1,  0])}}
  
-  for the term gamma_n2
+  5-points scheme for the 1º derivative
   center coefficient: array([0.08333333, -0.66666667, 0., 0.66666667, -0.08333333]), 'offsets': array([-2,-1, 0, 1, 2])}, 
   forward coefficients: array([-2.08333333, 4., -3., 1.33333333, -0.25]), 'offsets': array([0, 1, 2, 3, 4])}, 
   backward coefficients: array([0.25, -1.33333333, 3., -4., 2.08333333]), 'offsets': array([-4, -3,-2,-1,0])}}
     */
   VectorXd Cxx = VectorXd::Zero(7);
   VectorXd Czz = VectorXd::Zero(7);
-  VectorXd Cz = VectorXd::Zero(7);
-  VectorXd Bz = VectorXd::Zero(5);
   Cxx << 0.01111111, -0.15, 1.5, -2.72222222, 1.5, -0.15, 0.01111111;
   Czz = Cxx;
-  Cz << -1.66666667e-02, 1.50000000e-01, -7.50000000e-01, 0.0, 7.50000000e-01, -1.50000000e-01, 1.66666667e-02;
   double dzz;
   double dzz0;
   double dxx;
-  double gamma_n;
   double q0;
   double q1;
   double q2;
@@ -164,7 +160,7 @@ py::array_t<double> solve_wv2(py::array_t<double> parameters, py::array_t<double
 
   for (ssize_t t = 1; t < nt - 1; t++)
   {
-    auto resized = pad(w, t, nz, nx);
+    auto padding = pad(w, t, nz, nx);
     for (ssize_t i = 0; i < nz; i++)
     {
 #pragma omp simd
@@ -174,21 +170,22 @@ py::array_t<double> solve_wv2(py::array_t<double> parameters, py::array_t<double
         q1 = c(i, j) * c(i, j) * ht * ht;
         q2 = ((c(i, j) * ht) / hx) * ((c(i, j) * ht) / hx);
         q3 = ((c(i, j) * ht) / hz) * ((c(i, j) * ht) / hz);
-        dzz = Czz(0) * resized(i, j + 3) + Czz(1) * resized(i + 1, j + 3) + Czz(2) * resized(i + 2, j + 3) + Czz(3) * resized(i + 3, j + 3) + Czz(4) * resized(i + 4, j + 3) + Czz(5) * resized(i + 5, j + 3) + Czz(6) * resized(i + 6, j + 3);
+        dzz = Czz(0) * padding(i, j + 3) + Czz(1) * padding(i + 1, j + 3) + Czz(2) * padding(i + 2, j + 3) + Czz(3) * padding(i + 3, j + 3) + Czz(4) * padding(i + 4, j + 3) + Czz(5) * padding(i + 5, j + 3) + Czz(6) * padding(i + 6, j + 3);
 
-        dxx = Cxx(0) * resized(i + 3, j) + Cxx(1) * resized(i + 3, j + 1) + Cxx(2) * resized(i + 3, j + 2) + Cxx(3) * resized(i + 3, j + 3) + Cxx(4) * resized(i + 3, j + 4) + Cxx(5) * resized(i + 3, j + 5) + Cxx(6) * resized(i + 3, j + 6);
+        dxx = Cxx(0) * padding(i + 3, j) + Cxx(1) * padding(i + 3, j + 1) + Cxx(2) * padding(i + 3, j + 2) + Cxx(3) * padding(i + 3, j + 3) + Cxx(4) * padding(i + 3, j + 4) + Cxx(5) * padding(i + 3, j + 5) + Cxx(6) * padding(i + 3, j + 6);
 
         if (i == 0)
         {
-          gamma_n = (-1 / Cz(0)) * (Cz(1) * resized(i + 1, j + 3) + Cz(2) * resized(i + 2, j + 3) + Cz(4) * resized(i + 4, j + 3) + Cz(5) * resized(i + 5, j + 3) + Cz(6) * resized(i + 6, j + 3));
+          // for the Newmman condition <n,∇u> = 0, n is the unit normal vector.  
+          u(0,j,t) = u(1,j,t);
+          dzz0 = 2*(Czz(3)* u(0,j,t) + Czz(4) * u(1, j, t) + Czz(5) * u(2, j, t) + Czz(6) * u(3, j, t));
 
-          dzz0 = Czz(0) * gamma_n + Czz(1) * resized(i + 1, j + 3) + Czz(2) * resized(i + 2, j + 3) + Czz(3) * resized(i + 3, j + 3) + Czz(4) * resized(i + 4, j + 3) + Czz(5) * resized(i + 5, j + 3) + Czz(6) * resized(i + 6, j + 3);
+          u(0, j, t + 1) = (-1.0 * (u(0, j, t - 1) - 2.0 * u(0, j, t)) + q0 * damp(0, j) * u(0, j, t - 1) + q1 * source(0, j, t+1) + q2 * dxx + q3 * dzz0) * (1.0 / (1.0 + damp(0, j) * q0));
 
-          u(0, j, t + 1) = (-1.0 * (u(0, j, t - 1) - 2.0 * u(0, j, t)) + q0 * damp(0, j) * u(0, j, t - 1) + q1 * source(0, j, t) + q2 * dxx + q3 * dzz0) * (1.0 / (1.0 + damp(0, j) * q0));
         }
         else
         {
-          u(i, j, t + 1) = (-1.0 * (u(i, j, t - 1) - 2.0 * u(i, j, t)) + q0 * damp(i, j) * u(i, j, t - 1) + q1 * source(i, j, t) + q2 * dxx + q3 * dzz) * (1.0 / (1.0 + damp(i, j) * q0));
+          u(i, j, t + 1) = (-1.0 * (u(i, j, t - 1) - 2.0 * u(i, j, t)) + q0 * damp(i, j) * u(i, j, t - 1) + q1 * source(i, j, t+1) + q2 * dxx + q3 * dzz) * (1.0 / (1.0 + damp(i, j) * q0));
         };
       };
     };

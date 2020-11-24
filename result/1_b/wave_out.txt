@@ -1,8 +1,8 @@
 x-axis length 1.0 m, from start position 0.0 m to end position 1.0 m. 
 0.65 km for z-axis depth from the 0.0 ground . 
 -*-Grid dimensions-*-
-    Grid Size : 65 x 100 and 2060 time steps
-This numerical simulation only records 2.0 seconds of wave propagation. 
+    Grid Size : 65 x 100 and 1030 time steps
+This numerical simulation only records 1.0 seconds of wave propagation. 
 The damping term only works outside of square [0.1, 0.0] x [0.1, 0.55] x [0.9, 0.55] x [0.9, 0.0]. 
 Damping layer width 0.1 
 Discretizations steps hx = 0.01, hz = 0.01 and ht = 0.000970873786407767. 
@@ -26,28 +26,44 @@ Signal sources located at
  [0.11 0.3  0.5  0.69 0.89]
 Signal source matrix indexes 
  [11 30 50 69 89]
+Signal sources located at 
+ [0.11 0.3  0.5  0.69 0.89]
+Signal source matrix indexes 
+ [11 30 50 69 89]
+Signal sources located at 
+ [0.11 0.3  0.5  0.69 0.89]
+Signal source matrix indexes 
+ [11 30 50 69 89]
+Signal sources located at 
+ [0.11 0.3  0.5  0.69 0.89]
+Signal source matrix indexes 
+ [11 30 50 69 89]
+Signal sources located at 
+ [0.11 0.3  0.5  0.69 0.89]
+Signal source matrix indexes 
+ [11 30 50 69 89]
 
 -------------------------
 Noise coefficient:0.001
-Noise level: 3.05 % 
- Signal-to-Noise ratio (SNR): 15.15 dB
+Noise level: 0.64 % 
+ Signal-to-Noise ratio (SNR): 21.92 dB
 
 -------------------------
 Noise coefficient:0.001
-Noise level: 2.87 % 
- Signal-to-Noise ratio (SNR): 15.42 dB
+Noise level: 0.61 % 
+ Signal-to-Noise ratio (SNR): 22.14 dB
 
 -------------------------
 Noise coefficient:0.001
-Noise level: 2.83 % 
- Signal-to-Noise ratio (SNR): 15.48 dB
+Noise level: 0.61 % 
+ Signal-to-Noise ratio (SNR): 22.17 dB
 
 -------------------------
 Noise coefficient:0.001
-Noise level: 2.84 % 
- Signal-to-Noise ratio (SNR): 15.46 dB
+Noise level: 0.61 % 
+ Signal-to-Noise ratio (SNR): 22.16 dB
 
 -------------------------
 Noise coefficient:0.001
-Noise level: 3.10 % 
- Signal-to-Noise ratio (SNR): 15.09 dB
+Noise level: 0.70 % 
+ Signal-to-Noise ratio (SNR): 21.54 dB
